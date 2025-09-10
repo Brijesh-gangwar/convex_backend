@@ -1,97 +1,165 @@
+const http = httpRouter();
+
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
 
-const http = httpRouter();
-
+// -------------------- ORDER PAYMENT STATUS --------------------
 http.route({
-  path: "/register",
+  path: "/order/payment",
+  method: "PATCH",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+    // Expecting: { orderId: string, paymentStatus: string }
+    const result = await ctx.runMutation(api.mutations.updatePaymentStatus, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+
+// -------------------- USER --------------------
+http.route({
+  path: "/user",
   method: "POST",
   handler: httpAction(async (ctx, req) => {
-    const { name, email, password } = await req.json();
-    const result = await ctx.runMutation(api.auth.register, { name, email, password });
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    const body = await req.json();
+  const user = await ctx.runMutation(api.mutations.createUser, body);
+    return new Response(JSON.stringify(user), { status: 200 });
   }),
 });
 
 http.route({
-  path: "/login",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const { email, password } = await req.json();
-    const result = await ctx.runQuery(api.auth.login, { email, password });
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-});
-
-http.route({
-  path: "/createTodo",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const { text, userId } = await req.json();
-    const result = await ctx.runMutation(api.todos.createTodo, { text, userId });
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-});
-
-http.route({
-  path: "/getTodos",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const { userId } = await req.json();
-    const result = await ctx.runQuery(api.todos.getTodos, { userId });
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-});
-
-http.route({
-  path: "/updateTodo",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const { todoId, text, completed } = await req.json();
-    await ctx.runMutation(api.todos.updateTodo, { todoId, text, completed });
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-});
-
-http.route({
-  path: "/deleteTodo",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const { todoId } = await req.json();
-    await ctx.runMutation(api.todos.deleteTodo, { todoId });
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-});
-
-http.route({
-  path: "/allTodos",
+  path: "/user/:userId",
   method: "GET",
   handler: httpAction(async (ctx, req) => {
-    // Assuming your query supports fetching all todos
-    const result = await ctx.runQuery(api.todos.getAllTodos, {});
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    const url = new URL(req.url);
+    const userId = url.pathname.split("/").pop()!; // ✅ extract userId
+    const user = await ctx.runQuery(api.mutations.getUserDetails, { userId });
+    if (!user) return new Response(JSON.stringify({ error: "User not found" }), { status: 404 });
+    return new Response(JSON.stringify(user), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/user/address",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.addAddress, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/user/fcm",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.updateFcmToken, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+// -------------------- WISHLIST --------------------
+http.route({
+  path: "/wishlist/{userId}",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const userId = (ctx as any).userId;
+    const wishlist = await ctx.runQuery(api.mutations.getWishlist, { userId });
+    return new Response(JSON.stringify(wishlist), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/wishlist",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.addToWishlist, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/wishlist",
+  method: "DELETE",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.removeFromWishlist, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+// -------------------- CART --------------------
+http.route({
+  path: "/cart/{userId}",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const userId = (ctx as any).userId;
+    const cart = await ctx.runQuery(api.mutations.getCart, { userId });
+    return new Response(JSON.stringify(cart), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/cart",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.addToCart, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/cart",
+  method: "PATCH",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.updateCartItem, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/cart",
+  method: "DELETE",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.removeFromCart, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+// -------------------- ORDER --------------------
+http.route({
+  path: "/order",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.createOrder, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/order/{userId}",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const userId = (ctx as any).userId;
+    const orders = await ctx.runQuery(api.mutations.getOrders, { userId });
+    return new Response(JSON.stringify(orders), { status: 200 });
+  }),
+});
+
+http.route({
+  path: "/order/status",
+  method: "PATCH",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+  const result = await ctx.runMutation(api.mutations.updateOrderStatus, body);
+    return new Response(JSON.stringify(result), { status: 200 });
   }),
 });
 
