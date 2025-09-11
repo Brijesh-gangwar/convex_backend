@@ -4,6 +4,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
 
+
 // -------------------- ORDER PAYMENT STATUS --------------------
 http.route({
   path: "/order/payment",
@@ -29,12 +30,13 @@ http.route({
 });
 
 http.route({
-  path: "/user/:userId",
+  path: "/user/{userId}",
   method: "GET",
   handler: httpAction(async (ctx, req) => {
     const url = new URL(req.url);
-    const userId = url.pathname.split("/").pop()!; // ✅ extract userId
-    const user = await ctx.runQuery(api.mutations.getUserDetails, { userId });
+    // Extract userId from the path (last segment)
+    const userId = url.pathname.split("/").pop()!;
+  const user = await ctx.runQuery(api.queries.getUserDetails, { userId });
     if (!user) return new Response(JSON.stringify({ error: "User not found" }), { status: 404 });
     return new Response(JSON.stringify(user), { status: 200 });
   }),

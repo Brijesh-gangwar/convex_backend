@@ -1,0 +1,128 @@
+{
+  "createUser": {
+    "method": "POST",
+    "url": "https://<your-domain>/user",
+    "body": {
+      "userId": "user123",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "1234567890"
+    }
+  },
+  "getUserDetails": {
+    "method": "GET",
+    "url": "https://<your-domain>/user/user123"
+  },
+  "addAddress": {
+    "method": "POST",
+    "url": "https://<your-domain>/user/address",
+    "body": {
+      "userId": "user123",
+      "address": {
+        "label": "Home",
+        "street": "123 Main St",
+        "city": "Metropolis",
+        "state": "NY",
+        "zip": "10001",
+        "country": "USA"
+      }
+    }
+  },
+  "updateFcmToken": {
+    "method": "POST",
+    "url": "https://<your-domain>/user/fcm",
+    "body": {
+      "userId": "user123",
+      "fcmToken": "your-fcm-token"
+    }
+  },
+  "getWishlist": {
+    "method": "GET",
+    "url": "https://<your-domain>/wishlist/user123"
+  },
+  "addToWishlist": {
+    "method": "POST",
+    "url": "https://<your-domain>/wishlist",
+    "body": {
+      "userId": "user123",
+      "productId": "product456"
+    }
+  },
+  "removeFromWishlist": {
+    "method": "DELETE",
+    "url": "https://<your-domain>/wishlist",
+    "body": {
+      "userId": "user123",
+      "productId": "product456"
+    }
+  },
+  "getCart": {
+    "method": "GET",
+    "url": "https://<your-domain>/cart/user123"
+  },
+  "addToCart": {
+    "method": "POST",
+    "url": "https://<your-domain>/cart",
+    "body": {
+      "userId": "user123",
+      "productId": "product456",
+      "quantity": 2
+    }
+  },
+  "updateCartItem": {
+    "method": "PATCH",
+    "url": "https://<your-domain>/cart",
+    "body": {
+      "userId": "user123",
+      "productId": "product456",
+      "quantity": 3
+    }
+  },
+  "removeFromCart": {
+    "method": "DELETE",
+    "url": "https://<your-domain>/cart",
+    "body": {
+      "userId": "user123",
+      "productId": "product456"
+    }
+  },
+  "createOrder": {
+    "method": "POST",
+    "url": "https://<your-domain>/order",
+    "body": {
+      "userId": "user123",
+      "items": [
+        { "productId": "product456", "quantity": 2 }
+      ],
+      "total": 100.0,
+      "address": {
+        "label": "Home",
+        "street": "123 Main St",
+        "city": "Metropolis",
+        "state": "NY",
+        "zip": "10001",
+        "country": "USA"
+      }
+    }
+  },
+  "getOrders": {
+    "method": "GET",
+    "url": "https://<your-domain>/order/user123"
+  },
+  "updateOrderStatus": {
+    "method": "PATCH",
+    "url": "https://<your-domain>/order/status",
+    "body": {
+      "orderId": "order789",
+      "status": "shipped"
+    }
+  },
+  "updatePaymentStatus": {
+    "method": "PATCH",
+    "url": "https://<your-domain>/order/payment",
+    "body": {
+      "orderId": "order789",
+      "paymentStatus": "paid"
+    }
+  }
+}
