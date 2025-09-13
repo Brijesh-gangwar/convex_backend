@@ -13,7 +13,7 @@ export const createOrderFromCart = mutation({
 
     if (cartItems.length === 0) throw new Error("Cart is empty");
 
-    const items = [];
+    const items: any[] = [];
     for (const item of cartItems) {
       const product = await ctx.db.get(item.productId);
       if (!product) continue;

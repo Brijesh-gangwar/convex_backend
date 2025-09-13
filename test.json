@@ -73,8 +73,7 @@
     "method": "PATCH",
     "url": "https://<your-domain>/cart",
     "body": {
-      "userId": "user123",
-      "productId": "product456",
+      "id": "cartItemId123",
       "quantity": 3
     }
   },
@@ -82,8 +81,7 @@
     "method": "DELETE",
     "url": "https://<your-domain>/cart",
     "body": {
-      "userId": "user123",
-      "productId": "product456"
+      "id": "cartItemId123"
     }
   },
   "createOrder": {
@@ -122,7 +120,7 @@
     "url": "https://<your-domain>/order/payment",
     "body": {
       "orderId": "order789",
-      "paymentStatus": "paid"
+      "status": "paid"
     }
   }
 }

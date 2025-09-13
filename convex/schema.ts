@@ -4,18 +4,24 @@ import { v } from "convex/values";
 
 export default defineSchema({
   // ✅ Products
-  products: defineTable({
-    name: v.string(),
+   products: defineTable({
+    category: v.string(),
+    color: v.string(),
+    company: v.optional(v.string()),
     description: v.string(),
     details: v.string(),
-    category: v.string(),
-    subCategory: v.string(),
-    price: v.number(),
-    size: v.string(),
-    color: v.string(),
     fabric: v.string(),
     fit: v.string(),
+    images: v.optional(
+      v.array(
+        v.object({ public_id: v.string(), url: v.string() })
+      )
+    ),
     materialCare: v.string(),
+    name: v.string(),
+    price: v.float64(),
+    size: v.string(),
+    subCategory: v.string(),
     sustainable: v.string(),
     tags: v.array(v.string()),
   }),

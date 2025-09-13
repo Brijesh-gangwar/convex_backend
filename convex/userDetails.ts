@@ -62,6 +62,37 @@ export const addAddress = mutation({
 });
 
 // Get user details
+// export const getUserDetails = query({
+//   args: { userId: v.string() },
+//   handler: async (ctx, { userId }) => {
+//     return await ctx.db
+//       .query("userDetails")
+//       .withIndex("by_userId", q => q.eq("userId", userId))
+//       .unique();
+//   },
+// });
+
+
+// export const getUserDetails = query({
+//   args: { userId: v.string() },
+//   handler: async (ctx, { userId }) => {
+//     return await ctx.db
+//       .query("userDetails")
+//       .filter(q => q.eq(q.field("userId"), userId))
+//       .first();
+//   },
+// });
+
+// export const getUserDetails = query({
+//   args: { userId: v.string() },
+//   handler: async (ctx, { userId }) => {
+//     return await ctx.db
+//       .query("userDetails")
+//       .filter(q => q.eq(q.field("userId"), userId))
+//       .first();
+//   },
+// });
+
 export const getUserDetails = query({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {

@@ -1,9 +1,48 @@
-const http = httpRouter();
 
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
+const http = httpRouter();
 
+// -------------------- GET USER BY ID (Express-style /get/:userId) --------------------
+http.route({
+  path: "/get/{userId}",   // ✅ Convex syntax
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    try {
+      const { pathname } = new URL(req.url);
+      const userId = pathname.split("/").pop(); // or parse regex if needed
+
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "userId is required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const customer = await ctx.runQuery(api.userDetails.getUserDetails, {
+        userId,
+      });
+
+      if (!customer) {
+        return new Response(
+          JSON.stringify({ message: "Customer not found" }),
+          { status: 404, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(JSON.stringify(customer), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err: any) {
+      return new Response(
+        JSON.stringify({ error: err.message ?? "Internal server error" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }),
+});
 
 // -------------------- ORDER PAYMENT STATUS --------------------
 http.route({
@@ -29,18 +68,6 @@ http.route({
   }),
 });
 
-http.route({
-  path: "/user/{userId}",
-  method: "GET",
-  handler: httpAction(async (ctx, req) => {
-    const url = new URL(req.url);
-    // Extract userId from the path (last segment)
-    const userId = url.pathname.split("/").pop()!;
-  const user = await ctx.runQuery(api.queries.getUserDetails, { userId });
-    if (!user) return new Response(JSON.stringify({ error: "User not found" }), { status: 404 });
-    return new Response(JSON.stringify(user), { status: 200 });
-  }),
-});
 
 http.route({
   path: "/user/address",
@@ -164,5 +191,78 @@ http.route({
     return new Response(JSON.stringify(result), { status: 200 });
   }),
 });
+
+
+// -------------------- CASHFREE PAYMENT --------------------
+http.route({
+  path: "/cashfree/create-order",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+
+
+    const response = await fetch("https://sandbox.cashfree.com/pg/orders", {
+      method: "POST",
+      headers: {
+        "x-client-id": "TEST106725695c949e5b51106a0f061796527601",
+        "x-client-secret": "cfsk_ma_test_de7445b385ba6c73b2a8e3f384aa8abc_a757ce74",
+        "x-api-version": "2022-09-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        order_id: "order_" + Date.now(),
+        order_amount: body.amount,
+        order_currency: "INR",
+        customer_details: {
+          customer_id: body.userId,
+          customer_email: body.email,
+          customer_phone: body.phone,
+        },
+      }),
+    });
+
+    const data = await response.json();
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+
+// verify order status
+http.route({
+  path: "/cashfree/verify-order",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const { orderId } = await req.json();
+
+    const response = await fetch(`https://sandbox.cashfree.com/pg/orders/${orderId}`, {
+      method: "GET",
+      headers: {
+        "x-client-id":"TEST106725695c949e5b51106a0f061796527601",
+        "x-client-secret":"cfsk_ma_test_de7445b385ba6c73b2a8e3f384aa8abc_a757ce74",
+        "x-api-version": "2022-09-01",
+      },
+    });
+
+    const data = await response.json();
+
+    // Optionally, update order/payment status in Convex DB
+    if (data.order_status === "PAID") {
+      await ctx.runMutation(api.mutations.updatePaymentStatus, {
+        orderId,
+        paymentStatus: "PAID",
+      });
+    }
+
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+
 
 export default http;
