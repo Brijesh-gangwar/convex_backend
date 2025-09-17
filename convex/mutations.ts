@@ -1,3 +1,4 @@
+
 // Update Payment Status: Patch payment status for an order
 export const updatePaymentStatus = mutation({
   args: {
@@ -63,14 +64,10 @@ export const addToWishlist = mutation({
 });
 
 // Get Wishlist: Query wishlist items for user
-export const getWishlist = query({
-  args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    return await ctx.db
-      .query("wishlist")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-  },
+export const getWishlistByUserId = query(async (ctx, { userId }: { userId: string }) => {
+  return await ctx.db.query("wishlist")
+    .withIndex("by_userId", (q) => q.eq("userId", userId)) // assumes you created an index on userId
+    .collect();
 });
 
 // Remove from Wishlist: Delete wishlist item
@@ -92,14 +89,10 @@ export const removeFromWishlist = mutation({
 });
 
 // Get Cart: Query cart items for user
-export const getCart = query({
-  args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    return await ctx.db
-      .query("cart")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-  },
+export const getCartByUserId = query(async (ctx, { userId }: { userId: string }) => {
+  return await ctx.db.query("cart")
+    .withIndex("by_userId", (q) => q.eq("userId", userId)) // assumes you created an index on userId
+    .collect();
 });
 
 // Update Cart Item: Patch quantity for cart item
@@ -121,34 +114,57 @@ export const updateCartItem = mutation({
   },
 });
 
-// Create Order: Insert order with items
-export const createOrder = mutation({
-  args: {
-    userId: v.string(),
-    items: v.array(v.any()),
-  },
-  handler: async (ctx, { userId, items }) => {
-    const orderId = await ctx.db.insert("orders", {
-      userId,
-      items,
-      paymentStatus: "pending",
-      orderStatus: "pending",
-      createdAt: Date.now(),
-    });
-    return { success: true, orderId };
-  },
-});
 
-// Get Orders: Query orders for user
-export const getOrders = query({
-  args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    return await ctx.db
-      .query("orders")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-  },
-});
+// // Create Order: Insert order with items
+// export const createOrder = mutation({
+//   args: {
+//     userId: v.string(),
+//     items: v.array(
+//       v.object({
+//         productId: v.id("products"),
+//         name: v.string(),
+//         price: v.number(),
+//         quantity: v.number(),
+//         size: v.string(),
+//         color: v.string(),
+//         category: v.string(),
+//         subCategory: v.string(),
+//       })
+//     ),
+//     total: v.optional(v.number()),
+//     address: v.optional(v.object({
+//       label: v.string(),
+//       street: v.string(),
+//       city: v.string(),
+//       state: v.string(),
+//       zip: v.string(),
+//       country: v.string(),
+//     })),
+//   },
+//   handler: async (ctx, { userId, items, total, address }) => {
+//     const orderData: any = {
+//       userId,
+//       items,
+//       total,
+//       paymentStatus: "pending",
+//       orderStatus: "pending",
+//       createdAt: Date.now(),
+//     };
+//     if (address) {
+//       orderData.address = address;
+//     }
+//     const orderId = await ctx.db.insert("orders", orderData);
+//     return { success: true, orderId };
+//   },
+// });
+
+// // Get Orders: Query orders for user
+// export const getOrdersByUserId = query(async (ctx, { userId }: { userId: string }) => {
+//   return await ctx.db.query("orders")
+//     .withIndex("by_userId", (q) => q.eq("userId", userId)) // assumes you created an index on userId
+//     .collect();
+// });
+
 
 // Update Order Status: Patch order status
 export const updateOrderStatus = mutation({
@@ -169,7 +185,37 @@ import { v } from "convex/values";
 // USER MUTATIONS
 // ---------------------------
 
-// ✅ Create or update user details
+// update user details
+// ✅ Update User Details except addresses
+
+export const updateUserDetail = mutation({
+  args: {
+    userId: v.string(),
+    updatedFields: v.object({
+      name: v.optional(v.string()),
+      email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      fcmToken: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, { userId, updatedFields }) => {
+    // Find the user by userId
+    const user = await ctx.db
+      .query("userDetails")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    // Patch only the provided fields
+    await ctx.db.patch(user._id, updatedFields);
+
+    return { success: true, updatedFields };
+  },
+});
+
+
+// ✅ Create  user details
 export const upsertUserDetails = mutation({
   args: {
     userId: v.string(),
@@ -200,6 +246,14 @@ export const upsertUserDetails = mutation({
   },
 });
 
+// get orders by userId
+export const getOrdersByUserId = query(async (ctx, { userId }: { userId: string }) => {
+  return await ctx.db.query("orders")
+    .withIndex("by_userId", (q) => q.eq("userId", userId)) // assumes you created an index on userId
+    .collect();
+});
+
+
 // ✅ Update FCM Token
 export const updateFcmToken = mutation({
   args: { userId: v.string(), fcmToken: v.string() },
@@ -215,7 +269,8 @@ export const updateFcmToken = mutation({
   },
 });
 
-// ✅ Add Address
+
+// ✅ Add Address with addressId
 export const addAddress = mutation({
   args: {
     userId: v.string(),
@@ -226,30 +281,39 @@ export const addAddress = mutation({
       state: v.string(),
       zip: v.string(),
       country: v.string(),
+      latitude: v.optional(v.string()),
+      longitude: v.optional(v.string()),
     }),
   },
   handler: async (ctx, { userId, address }) => {
+    // Find the user by userId
     const user = await ctx.db
       .query("userDetails")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
 
     if (!user) throw new Error("User not found");
-    await ctx.db.patch(user._id, { addresses: [...user.addresses, address] });
-    return { success: true };
+
+    // ✅ Add unique addressId
+    const newAddress = { ...address, addressId: crypto.randomUUID() };
+
+    await ctx.db.patch(user._id, {
+      addresses: [...user.addresses, newAddress],
+    });
+
+    return { success: true, address: newAddress };
   },
 });
 
 // ✅ Get User Details
 export const getUserDetails = query({
   args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    return await ctx.db
-      .query("userDetails")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
+  handler: async (ctx, args) => {
+    const customers = await ctx.db.query("userDetails").collect();
+    return customers.find(c => c.userId === args.userId) || null;
   },
 });
+
 
 // ---------------------------
 // CART MUTATIONS
@@ -301,15 +365,35 @@ export const removeFromCart = mutation({
   },
 });
 
+
+// ✅ Get all products
+export const getAllProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("products").collect();
+  },
+});
+
+// Get product by ID
+export const getProductById = query({
+  args: { id: v.id("products") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
 // ---------------------------
 // ORDER MUTATIONS
 // ---------------------------
 
-// ✅ Create Order from Cart
+// ✅ Create Order from Cart with full address snapshot
 export const createOrderFromCart = mutation({
-  args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    // get cart items
+  args: {
+    userId: v.string(),
+    addressId: v.string(), // which saved address to use
+  },
+  handler: async (ctx, { userId, addressId }) => {
+    // 1️⃣ Get cart items
     const cartItems = await ctx.db
       .query("cart")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -317,6 +401,7 @@ export const createOrderFromCart = mutation({
 
     if (cartItems.length === 0) throw new Error("Cart is empty");
 
+    // 2️⃣ Build snapshot of items
     const snapshotItems: any[] = [];
     for (const item of cartItems) {
       const product = await ctx.db.get(item.productId);
@@ -334,16 +419,47 @@ export const createOrderFromCart = mutation({
       });
     }
 
-    // insert into orders
+    // 3️⃣ Calculate total
+    const total = snapshotItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    // 4️⃣ Fetch user details
+    const user = await ctx.db
+      .query("userDetails")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    // 5️⃣ Find the selected address by addressId
+    const selectedAddress = user.addresses.find(
+      (addr: any) => addr.addressId === addressId
+    );
+    if (!selectedAddress) throw new Error("Address not found");
+
+    // 6️⃣ Insert order with snapshot items + full address
     const orderId = await ctx.db.insert("orders", {
       userId,
       items: snapshotItems,
+      total,
+      address: {
+        label: selectedAddress.label,
+        street: selectedAddress.street,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        zip: selectedAddress.zip,
+        country: selectedAddress.country,
+        latitude: selectedAddress.latitude ?? "",
+        longitude: selectedAddress.longitude ?? "",
+      },
       paymentStatus: "pending",
       orderStatus: "pending",
       createdAt: Date.now(),
     });
 
-    // clear cart
+    // 7️⃣ Clear the cart
     for (const item of cartItems) {
       await ctx.db.delete(item._id);
     }
@@ -351,3 +467,137 @@ export const createOrderFromCart = mutation({
     return orderId;
   },
 });
+
+// // ✅ Create Order from Cart
+// export const createOrderFromCart = mutation({
+//   args: { userId: v.string() },
+//   handler: async (ctx, { userId }) => {
+//     // get cart items
+//     const cartItems = await ctx.db
+//       .query("cart")
+//       .withIndex("by_userId", (q) => q.eq("userId", userId))
+//       .collect();
+
+//     if (cartItems.length === 0) throw new Error("Cart is empty");
+
+//     const snapshotItems: any[] = [];
+//     for (const item of cartItems) {
+//       const product = await ctx.db.get(item.productId);
+//       if (!product) continue;
+
+//       snapshotItems.push({
+//         productId: item.productId,
+//         name: product.name,
+//         price: product.price,
+//         quantity: item.quantity,
+//         size: product.size,
+//         color: product.color,
+//         category: product.category,
+//         subCategory: product.subCategory,
+//       });
+//     }
+
+//     // Calculate total
+//     const total = snapshotItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+//     // insert into orders
+//     const orderId = await ctx.db.insert("orders", {
+//       userId,
+//       items: snapshotItems,
+//       total,
+//       address: {
+//         label: "",
+//         street: "",
+//         city: "",
+//         state: "",
+//         zip: "",
+//         country: "",
+//         latitude: "",
+//         longitude: "",
+//       },
+//       paymentStatus: "pending",
+//       orderStatus: "pending",
+//       createdAt: Date.now(),
+//     });
+
+//     // clear cart
+//     for (const item of cartItems) {
+//       await ctx.db.delete(item._id);
+//     }
+
+//     return orderId;
+//   },
+// });
+
+
+
+// remove address using addressId and userid
+
+export const removeAddress = mutation({
+  args: {
+    userId: v.string(),
+    addressId: v.string(),
+  },
+  handler: async (ctx, { userId, addressId }) => {
+    // Find the user by userId
+    const user = await ctx.db
+      .query("userDetails")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    // Filter out the address to remove
+    const updatedAddresses = user.addresses.filter(
+      (addr: any) => addr.addressId !== addressId
+    );
+
+    await ctx.db.patch(user._id, { addresses: updatedAddresses });
+
+    return { success: true };
+  },
+});
+
+// ✅ Update Address by addressId
+export const updateAddress = mutation({
+  args: {
+    userId: v.string(),
+    addressId: v.string(),
+    updatedFields: v.object({
+      label: v.optional(v.string()),
+      street: v.optional(v.string()),
+      city: v.optional(v.string()),
+      state: v.optional(v.string()),
+      zip: v.optional(v.string()),
+      country: v.optional(v.string()),
+      latitude: v.optional(v.string()),
+      longitude: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, { userId, addressId, updatedFields }) => {
+    // Find the user by userId
+    const user = await ctx.db
+      .query("userDetails")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    // Update the specific address
+    const updatedAddresses = user.addresses.map((addr: any) => {
+      if (addr.addressId === addressId) {
+        return { ...addr, ...updatedFields };
+      }
+      return addr;
+    });
+
+    await ctx.db.patch(user._id, { addresses: updatedAddresses });
+
+    const updatedAddress = updatedAddresses.find(
+      (addr: any) => addr.addressId === addressId
+    );
+
+    return { success: true, address: updatedAddress };
+  },
+});
+

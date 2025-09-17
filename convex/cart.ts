@@ -32,12 +32,28 @@ export const removeFromCart = mutation({
 });
 
 // Get cart items
-export const getCart = query({
-  args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    return await ctx.db
-      .query("cart")
-      .withIndex("by_userId", q => q.eq("userId", userId))
-      .collect();
-  },
+// export const getCartByUserId = query(async (ctx, { userId }: { userId: string }) => {
+//   return await ctx.db.query("cart")
+//     .withIndex("by_userId", (q) => q.eq("userId", userId)) // assumes you created an index on userId
+//     .collect();
+// });
+
+
+export const getCartByUserId = query(async (ctx, { userId }: { userId: string }) => {
+  const cartItems = await ctx.db.query("cart")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+
+  // Fetch product details for each cart item
+  const cartWithProductDetails = await Promise.all(
+    cartItems.map(async (item) => {
+      const product = await ctx.db.get(item.productId);
+      return {
+        ...item,
+        product, // will be null if not found
+      };
+    })
+  );
+
+  return cartWithProductDetails;
 });

@@ -23,12 +23,22 @@ export const removeFromWishlist = mutation({
 });
 
 // Get wishlist for user
-export const getWishlist = query({
-  args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    return await ctx.db
-      .query("wishlist")
-      .withIndex("by_userId", q => q.eq("userId", userId))
-      .collect();
-  },
+export const getWishlistByUserId = query(async (ctx, { userId }: { userId: string }) => {
+  const wishlistItems = await ctx.db.query("wishlist")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+
+  // Fetch product details for each wishlist item
+  const wishlistWithProductDetails = await Promise.all(
+    wishlistItems.map(async (item) => {
+      const product = await ctx.db.get(item.productId);
+      return {
+        ...item,
+        product, // will be null if not found
+      };
+    })
+  );
+
+  return wishlistWithProductDetails;
 });
+

@@ -1,48 +1,74 @@
-
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
+// ✅ call query, not mutation
+import { Id } from "./_generated/dataModel"; // adjust path if needed
+
+// ...
+
+
 const http = httpRouter();
 
-// -------------------- GET USER BY ID (Express-style /get/:userId) --------------------
+
+// -------------------- GET CART BY USER ID (Query Param) --------------------
 http.route({
-  path: "/get/{userId}",   // ✅ Convex syntax
+  path: "/cart/getByUserId",
   method: "GET",
   handler: httpAction(async (ctx, req) => {
-    try {
-      const { pathname } = new URL(req.url);
-      const userId = pathname.split("/").pop(); // or parse regex if needed
+    const url = new URL(req.url);
+    const userId = url.searchParams.get("userId");
 
-      if (!userId) {
-        return new Response(JSON.stringify({ error: "userId is required" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      const customer = await ctx.runQuery(api.userDetails.getUserDetails, {
-        userId,
-      });
-
-      if (!customer) {
-        return new Response(
-          JSON.stringify({ message: "Customer not found" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
-      }
-
-      return new Response(JSON.stringify(customer), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (err: any) {
+    if (!userId) {
       return new Response(
-        JSON.stringify({ error: err.message ?? "Internal server error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ message: "Missing userId" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+
+  const cart = await ctx.runQuery(api.cart.getCartByUserId, { userId });
+
+    if (!cart) {
+      return new Response(
+        JSON.stringify({ message: "No cart found for this user" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(JSON.stringify(cart), {
+      headers: { "Content-Type": "application/json" },
+    });
   }),
 });
+
+http.route({
+  path: "/order/getByUserId",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const url = new URL(req.url);
+    const userId = url.searchParams.get("userId");
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ message: "Missing userId" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+  const orders = await ctx.runQuery(api.orders.getOrdersByUserId, { userId });
+
+    if (!orders) {
+      return new Response(
+        JSON.stringify({ message: "No orders found for this user" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(JSON.stringify(orders), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 
 // -------------------- ORDER PAYMENT STATUS --------------------
 http.route({
@@ -69,6 +95,7 @@ http.route({
 });
 
 
+// add address
 http.route({
   path: "/user/address",
   method: "POST",
@@ -78,6 +105,33 @@ http.route({
     return new Response(JSON.stringify(result), { status: 200 });
   }),
 });
+
+
+
+
+// ✅ Update Address
+http.route({
+  path: "/user/address",
+  method: "PATCH",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+    const result = await ctx.runMutation(api.mutations.updateAddress, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+// ✅ Remove Address
+http.route({
+  path: "/user/address",
+  method: "DELETE",
+  handler: httpAction(async (ctx, req) => {
+    const body = await req.json();
+    const result = await ctx.runMutation(api.mutations.removeAddress, body);
+    return new Response(JSON.stringify(result), { status: 200 });
+  }),
+});
+
+
 
 http.route({
   path: "/user/fcm",
@@ -90,15 +144,6 @@ http.route({
 });
 
 // -------------------- WISHLIST --------------------
-http.route({
-  path: "/wishlist/{userId}",
-  method: "GET",
-  handler: httpAction(async (ctx, req) => {
-    const userId = (ctx as any).userId;
-    const wishlist = await ctx.runQuery(api.mutations.getWishlist, { userId });
-    return new Response(JSON.stringify(wishlist), { status: 200 });
-  }),
-});
 
 http.route({
   path: "/wishlist",
@@ -120,16 +165,36 @@ http.route({
   }),
 });
 
-// -------------------- CART --------------------
 http.route({
-  path: "/cart/{userId}",
+  path: "/wishlist/getByUserId",
   method: "GET",
   handler: httpAction(async (ctx, req) => {
-    const userId = (ctx as any).userId;
-    const cart = await ctx.runQuery(api.mutations.getCart, { userId });
-    return new Response(JSON.stringify(cart), { status: 200 });
+    const url = new URL(req.url);
+    const userId = url.searchParams.get("userId");
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ message: "Missing userId" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+  const wishlist = await ctx.runQuery(api.wishlist.getWishlistByUserId, { userId });
+
+    if (!wishlist) {
+      return new Response(
+        JSON.stringify({ message: "No wishlist found for this user" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(JSON.stringify(wishlist), {
+      headers: { "Content-Type": "application/json" },
+    });
   }),
 });
+
+
 
 http.route({
   path: "/cart",
@@ -167,20 +232,11 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, req) => {
     const body = await req.json();
-  const result = await ctx.runMutation(api.mutations.createOrder, body);
+  const result = await ctx.runMutation(api.mutations.createOrderFromCart, body);
     return new Response(JSON.stringify(result), { status: 200 });
   }),
 });
 
-http.route({
-  path: "/order/{userId}",
-  method: "GET",
-  handler: httpAction(async (ctx, req) => {
-    const userId = (ctx as any).userId;
-    const orders = await ctx.runQuery(api.mutations.getOrders, { userId });
-    return new Response(JSON.stringify(orders), { status: 200 });
-  }),
-});
 
 http.route({
   path: "/order/status",
@@ -192,76 +248,168 @@ http.route({
   }),
 });
 
+// update user details
 
-// -------------------- CASHFREE PAYMENT --------------------
 http.route({
-  path: "/cashfree/create-order",
-  method: "POST",
+  path: "/user/update",
+  method: "PATCH",
   handler: httpAction(async (ctx, req) => {
-    const body = await req.json();
+    try {
+      const body = await req.json();
 
+      // Validate required fields
+      const { userId, updatedFields } = body;
+      if (!userId || !updatedFields) {
+        return new Response(
+          JSON.stringify({ message: "Missing userId or updatedFields" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
 
-    const response = await fetch("https://sandbox.cashfree.com/pg/orders", {
-      method: "POST",
-      headers: {
-        "x-client-id": "TEST106725695c949e5b51106a0f061796527601",
-        "x-client-secret": "cfsk_ma_test_de7445b385ba6c73b2a8e3f384aa8abc_a757ce74",
-        "x-api-version": "2022-09-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        order_id: "order_" + Date.now(),
-        order_amount: body.amount,
-        order_currency: "INR",
-        customer_details: {
-          customer_id: body.userId,
-          customer_email: body.email,
-          customer_phone: body.phone,
-        },
-      }),
-    });
+      const result = await ctx.runMutation(api.mutations.updateUserDetail, {
+        userId,
+        updatedFields,
+      });
 
-    const data = await response.json();
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }),
-});
-
-
-// verify order status
-http.route({
-  path: "/cashfree/verify-order",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const { orderId } = await req.json();
-
-    const response = await fetch(`https://sandbox.cashfree.com/pg/orders/${orderId}`, {
-      method: "GET",
-      headers: {
-        "x-client-id":"TEST106725695c949e5b51106a0f061796527601",
-        "x-client-secret":"cfsk_ma_test_de7445b385ba6c73b2a8e3f384aa8abc_a757ce74",
-        "x-api-version": "2022-09-01",
-      },
-    });
-
-    const data = await response.json();
-
-    // Optionally, update order/payment status in Convex DB
-    if (data.order_status === "PAID") {
-      await ctx.runMutation(api.mutations.updatePaymentStatus, {
-        orderId,
-        paymentStatus: "PAID",
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error: any) {
+      return new Response(JSON.stringify({ message: error.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
       });
     }
+  }),
+});
 
-    return new Response(JSON.stringify(data), {
-      status: 200,
+
+
+http.route({
+  path: "/user/getByUserId",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const url = new URL(req.url);
+    const userId = url.searchParams.get("userId");
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ message: "Missing userId" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Assuming you already have a query like api.queries.getCartById
+    const user = await ctx.runQuery(api.userDetails.getUserDetails, { userId });
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({ message: "Cart not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(JSON.stringify(user), {
       headers: { "Content-Type": "application/json" },
     });
   }),
 });
+
+
+
+// -------------------- GET ALL PRODUCTS --------------------
+// http.route({
+//   path: "/products/getAll",
+//   method: "GET",
+//   handler: httpAction(async (ctx, req) => {
+//     try {
+//       const products = await ctx.runQuery(api.mutations.getAllProducts, {});
+//       return new Response(JSON.stringify(products), {
+//         status: 200,
+//         headers: { "Content-Type": "application/json" },
+//       });
+//     } catch (err: any) {
+//       return new Response(
+//         JSON.stringify({ message: err.message }),
+//         { status: 500, headers: { "Content-Type": "application/json" } }
+//       );
+//     }
+//   }),
+// });
+
+
+// -------------------- GET ALL PRODUCTS WITH PAGINATION --------------------
+http.route({
+  path: "/products/getAll",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const url = new URL(req.url);
+
+    const limit = Number(url.searchParams.get("limit")) || 10; // default = 10
+    const cursor = url.searchParams.get("cursor") || undefined;
+
+    try {
+      const products = await ctx.runQuery(api.products.getAllProducts, {
+        limit,
+        cursor,
+      });
+
+      return new Response(JSON.stringify(products), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err: any) {
+      return new Response(
+        JSON.stringify({ message: err.message }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }),
+});
+
+// -------------------- GET PRODUCT BY ID --------------------
+http.route({
+  path: "/products/getById",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const url = new URL(req.url);
+    const productId = url.searchParams.get("id"); // /products/getById?id=<productId>
+
+    if (!productId) {
+      return new Response(
+        JSON.stringify({ message: "Missing productId" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    try {
+      const product = await ctx.runQuery(api.products.getProductById, {
+        id: productId as any, // cast because Convex Id<> is stricter
+      });
+
+      if (!product) {
+        return new Response(
+          JSON.stringify({ message: "Product not found" }),
+          { status: 404, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(JSON.stringify(product), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err: any) {
+      return new Response(
+        JSON.stringify({ message: err.message }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }),
+});
+
+
+
 
 
 

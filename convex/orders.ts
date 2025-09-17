@@ -35,6 +35,15 @@ export const createOrderFromCart = mutation({
       paymentStatus: "pending",
       orderStatus: "pending",
       createdAt: Date.now(),
+      total: 0,
+      address: {
+        label: "",
+        street: "",
+        city: "",
+        state: "",
+        zip: "",
+        country: ""
+      }
     });
 
     for (const item of cartItems) {
@@ -62,12 +71,17 @@ export const updateOrderStatus = mutation({
 });
 
 // Get orders for a user
-export const getOrders = query({
-  args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    return await ctx.db
-      .query("orders")
-      .withIndex("by_userId", q => q.eq("userId", userId))
-      .collect();
-  },
+// export const getOrders = query({
+//   args: { userId: v.string() },
+//   handler: async (ctx, args) => {
+//     const customers = await ctx.db.query("orders").collect();
+//     return customers.find(c => c.userId === args.userId) || null;
+//   },
+// });
+
+
+export const getOrdersByUserId = query(async (ctx, { userId }: { userId: string }) => {
+  return await ctx.db.query("orders")
+    .withIndex("by_userId", (q) => q.eq("userId", userId)) // assumes you created an index on userId
+    .collect();
 });

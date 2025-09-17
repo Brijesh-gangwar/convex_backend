@@ -17,7 +17,7 @@ import type * as cart from "../cart.js";
 import type * as http from "../http.js";
 import type * as mutations from "../mutations.js";
 import type * as orders from "../orders.js";
-import type * as queries from "../queries.js";
+import type * as products from "../products.js";
 import type * as userDetails from "../userDetails.js";
 import type * as wishlist from "../wishlist.js";
 
@@ -34,7 +34,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   mutations: typeof mutations;
   orders: typeof orders;
-  queries: typeof queries;
+  products: typeof products;
   userDetails: typeof userDetails;
   wishlist: typeof wishlist;
 }>;

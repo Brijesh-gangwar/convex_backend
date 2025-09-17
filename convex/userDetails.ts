@@ -49,6 +49,8 @@ export const addAddress = mutation({
       state: v.string(),
       zip: v.string(),
       country: v.string(),
+      latitude: v.optional(v.string()),
+      longitude: v.optional(v.string()),
     }),
   },
   handler: async (ctx, { userId, address }) => {
@@ -57,48 +59,16 @@ export const addAddress = mutation({
       .withIndex("by_userId", q => q.eq("userId", userId))
       .unique();
     if (!user) throw new Error("User not found");
-    await ctx.db.patch(user._id, { addresses: [...user.addresses, address] });
+    await ctx.db.patch(user._id, { addresses: [...user.addresses, { ...address, addressId: crypto.randomUUID() }] });
   },
 });
 
-// Get user details
-// export const getUserDetails = query({
-//   args: { userId: v.string() },
-//   handler: async (ctx, { userId }) => {
-//     return await ctx.db
-//       .query("userDetails")
-//       .withIndex("by_userId", q => q.eq("userId", userId))
-//       .unique();
-//   },
-// });
 
-
-// export const getUserDetails = query({
-//   args: { userId: v.string() },
-//   handler: async (ctx, { userId }) => {
-//     return await ctx.db
-//       .query("userDetails")
-//       .filter(q => q.eq(q.field("userId"), userId))
-//       .first();
-//   },
-// });
-
-// export const getUserDetails = query({
-//   args: { userId: v.string() },
-//   handler: async (ctx, { userId }) => {
-//     return await ctx.db
-//       .query("userDetails")
-//       .filter(q => q.eq(q.field("userId"), userId))
-//       .first();
-//   },
-// });
 
 export const getUserDetails = query({
   args: { userId: v.string() },
-  handler: async (ctx, { userId }) => {
-    return await ctx.db
-      .query("userDetails")
-      .withIndex("by_userId", q => q.eq("userId", userId))
-      .unique();
+  handler: async (ctx, args) => {
+    const user = await ctx.db.query("userDetails").collect();
+    return user.find(c => c.userId === args.userId) || null;
   },
 });
