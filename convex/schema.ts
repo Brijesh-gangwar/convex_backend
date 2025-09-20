@@ -62,7 +62,9 @@ export default defineSchema({
     addedAt: v.number(),
   }).index("by_userId", ["userId"]),
 
-  orders: defineTable({
+
+orders: defineTable({
+  orderId: v.string(), // client-provided
   userId: v.string(),
   items: v.array(
     v.object({
@@ -70,14 +72,14 @@ export default defineSchema({
       name: v.string(),
       price: v.number(),
       quantity: v.number(),
-      size: v.string(),
-      color: v.string(),
-      category: v.string(),
-      subCategory: v.string(),
+      size: v.optional(v.string()),
+      color: v.optional(v.string()),
+      category: v.optional(v.string()),
+      subCategory: v.optional(v.string()),
+      image: v.optional(v.string()),
     })
   ),
-  total: v.number(),
-  address: v.object({          // ✅ full address snapshot
+  address: v.object({
     label: v.string(),
     street: v.string(),
     city: v.string(),
@@ -87,13 +89,11 @@ export default defineSchema({
     latitude: v.optional(v.string()),
     longitude: v.optional(v.string()),
   }),
-  paymentStatus: v.string(),    // "pending" | "paid" | "failed"
-  orderStatus: v.string(),      // "pending" | "confirmed" | "shipped" | "delivered" | "cancelled"
+    total: v.number(),
+  paymentId: v.optional(v.string()),     // ✅ new optional field
+  paymentStatus:v.string(), // optional
+  paymentMethod: v.optional(v.string()), // optional
+  orderStatus: v.string(),               // required
   createdAt: v.number(),
-  updatedAt: v.optional(v.number()),
 }).index("by_userId", ["userId"]),
 });
-
-
-
-

@@ -314,6 +314,20 @@ export const getUserDetails = query({
   },
 });
 
+// ✅ Check if user exists
+export const isUserPresent = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+
+    const customers = await ctx.db.query("userDetails").collect();
+    
+
+    const exists = customers.some(c => c.userId === args.userId);
+    return exists; 
+  },
+});
+
+
 
 // ---------------------------
 // CART MUTATIONS
@@ -386,93 +400,15 @@ export const getProductById = query({
 // ORDER MUTATIONS
 // ---------------------------
 
+
 // ✅ Create Order from Cart with full address snapshot
-export const createOrderFromCart = mutation({
-  args: {
-    userId: v.string(),
-    addressId: v.string(), // which saved address to use
-  },
-  handler: async (ctx, { userId, addressId }) => {
-    // 1️⃣ Get cart items
-    const cartItems = await ctx.db
-      .query("cart")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-
-    if (cartItems.length === 0) throw new Error("Cart is empty");
-
-    // 2️⃣ Build snapshot of items
-    const snapshotItems: any[] = [];
-    for (const item of cartItems) {
-      const product = await ctx.db.get(item.productId);
-      if (!product) continue;
-
-      snapshotItems.push({
-        productId: item.productId,
-        name: product.name,
-        price: product.price,
-        quantity: item.quantity,
-        size: product.size,
-        color: product.color,
-        category: product.category,
-        subCategory: product.subCategory,
-      });
-    }
-
-    // 3️⃣ Calculate total
-    const total = snapshotItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-
-    // 4️⃣ Fetch user details
-    const user = await ctx.db
-      .query("userDetails")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!user) throw new Error("User not found");
-
-    // 5️⃣ Find the selected address by addressId
-    const selectedAddress = user.addresses.find(
-      (addr: any) => addr.addressId === addressId
-    );
-    if (!selectedAddress) throw new Error("Address not found");
-
-    // 6️⃣ Insert order with snapshot items + full address
-    const orderId = await ctx.db.insert("orders", {
-      userId,
-      items: snapshotItems,
-      total,
-      address: {
-        label: selectedAddress.label,
-        street: selectedAddress.street,
-        city: selectedAddress.city,
-        state: selectedAddress.state,
-        zip: selectedAddress.zip,
-        country: selectedAddress.country,
-        latitude: selectedAddress.latitude ?? "",
-        longitude: selectedAddress.longitude ?? "",
-      },
-      paymentStatus: "pending",
-      orderStatus: "pending",
-      createdAt: Date.now(),
-    });
-
-    // 7️⃣ Clear the cart
-    for (const item of cartItems) {
-      await ctx.db.delete(item._id);
-    }
-
-    return orderId;
-  },
-});
-
-// // ✅ Create Order from Cart
 // export const createOrderFromCart = mutation({
-//   args: { userId: v.string() },
-//   handler: async (ctx, { userId }) => {
-//     // get cart items
+//   args: {
+//     userId: v.string(),
+//     addressId: v.string(), // which saved address to use
+//   },
+//   handler: async (ctx, { userId, addressId }) => {
+//     // 1️⃣ Get cart items
 //     const cartItems = await ctx.db
 //       .query("cart")
 //       .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -480,6 +416,7 @@ export const createOrderFromCart = mutation({
 
 //     if (cartItems.length === 0) throw new Error("Cart is empty");
 
+//     // 2️⃣ Build snapshot of items
 //     const snapshotItems: any[] = [];
 //     for (const item of cartItems) {
 //       const product = await ctx.db.get(item.productId);
@@ -494,33 +431,52 @@ export const createOrderFromCart = mutation({
 //         color: product.color,
 //         category: product.category,
 //         subCategory: product.subCategory,
+//         image: product.images?.[0]?.url ?? "", // ✅ new field
 //       });
 //     }
 
-//     // Calculate total
-//     const total = snapshotItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+//     // 3️⃣ Calculate total
+//     const total = snapshotItems.reduce(
+//       (sum, item) => sum + item.price * item.quantity,
+//       0
+//     );
 
-//     // insert into orders
+//     // 4️⃣ Fetch user details
+//     const user = await ctx.db
+//       .query("userDetails")
+//       .withIndex("by_userId", (q) => q.eq("userId", userId))
+//       .unique();
+
+//     if (!user) throw new Error("User not found");
+
+//     // 5️⃣ Find the selected address by addressId
+//     const selectedAddress = user.addresses.find(
+//       (addr: any) => addr.addressId === addressId
+//     );
+//     if (!selectedAddress) throw new Error("Address not found");
+
+//     // 6️⃣ Insert order with snapshot items + full address
 //     const orderId = await ctx.db.insert("orders", {
 //       userId,
 //       items: snapshotItems,
 //       total,
 //       address: {
-//         label: "",
-//         street: "",
-//         city: "",
-//         state: "",
-//         zip: "",
-//         country: "",
-//         latitude: "",
-//         longitude: "",
+//         label: selectedAddress.label,
+//         street: selectedAddress.street,
+//         city: selectedAddress.city,
+//         state: selectedAddress.state,
+//         zip: selectedAddress.zip,
+//         country: selectedAddress.country,
+//         latitude: selectedAddress.latitude ?? "",
+//         longitude: selectedAddress.longitude ?? "",
 //       },
 //       paymentStatus: "pending",
+//       paymentMethod: "Cash on Delivery", // ✅ new field
 //       orderStatus: "pending",
 //       createdAt: Date.now(),
 //     });
 
-//     // clear cart
+//     // 7️⃣ Clear the cart
 //     for (const item of cartItems) {
 //       await ctx.db.delete(item._id);
 //     }
@@ -529,6 +485,97 @@ export const createOrderFromCart = mutation({
 //   },
 // });
 
+// ✅ Create Order from Cart with full address snapshot and optional paymentId
+export const createOrderFromCart = mutation({
+  args: {
+    userId: v.string(),
+    addressId: v.string(),
+    orderId: v.string(),        // provided by client
+    paymentId: v.optional(v.string()), 
+    // optional payment provider ID
+
+    // optional
+    paymentStatus: v.string(), // e.g., "paid", "pending"
+  paymentMethod: v.string(),
+  },
+  handler: async (ctx, { userId, addressId, orderId, paymentId, paymentMethod, paymentStatus }) => {
+    // 1️⃣ Get cart items
+    const cartItems = await ctx.db
+      .query("cart")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+
+    if (cartItems.length === 0) throw new Error("Cart is empty");
+
+    // 2️⃣ Build snapshot
+    const snapshotItems: any[] = [];
+    for (const item of cartItems) {
+      const product = await ctx.db.get(item.productId);
+      if (!product) continue;
+
+      snapshotItems.push({
+        productId: item.productId,
+        name: product.name,
+        price: product.price,
+        quantity: item.quantity,
+        size: product.size,
+        color: product.color,
+        category: product.category,
+        subCategory: product.subCategory,
+        image: product.images?.[0]?.url ?? "",
+      });
+    }
+
+    // 3️⃣ Fetch user details
+    const user = await ctx.db
+      .query("userDetails")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    const selectedAddress = user.addresses.find(
+      (addr: any) => addr.addressId === addressId
+    );
+    if (!selectedAddress) throw new Error("Address not found");
+
+    // 3️⃣ Calculate total
+    const total = snapshotItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    // 4️⃣ Insert order
+    const docId = await ctx.db.insert("orders", {
+      orderId,          // custom client-provided orderId
+      userId,
+      items: snapshotItems,
+      address: {
+        label: selectedAddress.label,
+        street: selectedAddress.street,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        zip: selectedAddress.zip,
+        country: selectedAddress.country,
+        latitude: selectedAddress.latitude ?? "",
+        longitude: selectedAddress.longitude ?? "",
+      },
+      total,
+      paymentId: paymentId ?? undefined, // ✅ optional
+      paymentStatus: paymentStatus ?? "pending",          // optional, can update later
+      paymentMethod: paymentMethod ?? "cash on delivery",          // optional, can update later
+      orderStatus: "pending",
+      createdAt: Date.now(),
+    });
+
+    // 5️⃣ Clear cart
+    for (const item of cartItems) {
+      await ctx.db.delete(item._id);
+    }
+
+    return { orderId, docId, paymentId };
+  },
+});
 
 
 // remove address using addressId and userid

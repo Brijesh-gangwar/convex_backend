@@ -305,7 +305,7 @@ http.route({
 
     if (!user) {
       return new Response(
-        JSON.stringify({ message: "Cart not found" }),
+        JSON.stringify({ message: "User details not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -313,6 +313,33 @@ http.route({
     return new Response(JSON.stringify(user), {
       headers: { "Content-Type": "application/json" },
     });
+  }),
+});
+
+
+// checks if user exists
+
+export const checkUserExists = http.route({
+  path: "/user/ispresent",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const url = new URL(req.url);
+    const userId = url.searchParams.get("userId");
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ exists: false, message: "Missing userId" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Call your query that checks user
+    const exists = await ctx.runQuery(api.mutations.isUserPresent, { userId });
+
+    return new Response(
+      JSON.stringify({ exists }),
+      { headers: { "Content-Type": "application/json" } }
+    );
   }),
 });
 
